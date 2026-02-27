@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pt">
+<head>
+ <meta charset="utf-8"/>
+ <meta name="viewport" content="width=device-width, initial-scale=1"/>
+ <title>Login</title>
+ <link rel="stylesheet" href="/web/app.css"/>
+ <script>
+   (function() {
+     const savedTheme = localStorage.getItem("selected-theme") || 1;
+     const THEMES = ["theme-day", "theme-night", "theme-floribela"];
+     document.documentElement.className = THEMES[savedTheme];
+   })();
+ </script>
+</head>
+<body class="theme-day">
+  <div class="background-animation">
+   <div class="blob"></div>
+   <div class="blob"></div>
+   <div class="blob"></div>
+  </div>
+ <div class="page-center">
+   <div class="card">
+     <h1>Login</h1>
+
+     <label>Email</label>
+     <input id="email" type="email" placeholder="Email"/>
+
+     <label>Password</label>
+     <input id="password" type="password" placeholder="password"/>
+
+     <button id="btnLogin" class="primary">Login</button>
+     <div id="err" class="error"></div>
+
+     <div class="muted tiny">Default: admin@local / admin</div>
+   </div>
+ </div>
+
+ <script>
+   async function goChat() {
+     location.href = "/web/chat.html";
+   }
+   // se j   tiver sess  o, salta o login
+   (async () => {
+     const r = await fetch("/api/me");
+     if (r.ok) return goChat();
+   })();
+
+   document.getElementById("btnLogin").onclick = async () => {
+     const email = document.getElementById("email").value.trim();
+     const password = document.getElementById("password").value;
+     const err = document.getElementById("err");
+     err.textContent = "";
+
+     const r = await fetch("/auth/login", {
+       method: "POST",
+       headers: {"Content-Type":"application/json"},
+       body: JSON.stringify({ email, password })
+     });
+     const j = await r.json().catch(()=>({}));
+     if (!r.ok) {
+       err.textContent = j.error || "Erro no login";
+       return;
+     }
+     goChat();
+   };
+ </script>
+
+  <div class="theme-switchers">
+    <button class="theme-btn" onclick="setTheme(0)">☀️</button>
+    <button class="theme-btn" onclick="setTheme(1)">🌙</button>
+    <button class="theme-btn" onclick="setTheme(2)">🌸</button>
+  </div>
+</div>
+
+
+<script>
+  // Função para mudar o tema no Login
+  const THEMES = ["theme-day", "theme-night", "theme-floribela"];
+  
+  function setTheme(idx) {
+    document.body.classList.remove(...THEMES);
+    document.body.classList.add(THEMES[idx]);
+    // Guarda a escolha para quando entrar no chat
+    localStorage.setItem("selected-theme", idx);
+  }
+
+  // Carrega o tema guardado ao abrir a página
+  const savedTheme = localStorage.getItem("selected-theme") || 1;
+  setTheme(parseInt(savedTheme));
+</script>
+  <div class="theme-switchers">
+    <button class="theme-btn" onclick="setTheme(0)" title="Dia">☀️  </button>
+    <button class="theme-btn" onclick="setTheme(1)" title="Noite">🌕 </button>
+    <button class="theme-btn" onclick="setTheme(2)" title="Floribela">🌸</button>
+</body>
+</html>

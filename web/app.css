@@ -1,0 +1,633 @@
+/* --- VARIÁVEIS GLOBAIS --- */
+:root {
+  --bg: #0f172a;
+  --fg: #e2e8f0;
+  --muted: #94a3b8;
+  --card: rgba(30, 41, 59, 0.7);
+  --accent: #10b981;
+  --accent-hover: --accent;
+  --danger: #ef4444;
+  --radius: 20px;
+  --glass: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --menuBg: #2929292e;
+}
+
+/* --- TEMAS --- */
+body.theme-night {
+  --bg: #0f172a;
+  --fg: #e2e8f0;
+  --card: rgba(30, 41, 59, 0.7);
+  --aura-rgb: 34, 197, 94;
+  --accent: #10b981;
+}
+
+.theme-day {
+  --bg: #f1f5f9;
+  --fg: #1e293b;
+  --muted: #64748b;
+  --card: rgba(255, 255, 255, 0.8);
+  --accent: #2563eb;
+  --glass-border: rgba(0, 0, 0, 0.1);
+  --aura-rgb: 37, 99, 235;
+}
+
+.theme-floribela {
+  --bg: #2d0a31;
+  --fg: #ffffff;
+  --muted: #f0abfc;
+  --card: rgba(255, 255, 255, 0.1);
+  --accent: #f0abfc;
+  --aura-rgb: 240, 171, 252;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+  transition: all 0.3s ease;
+}
+
+/* --- ELEMENTOS DE TEXTO --- */
+label {
+  color: var(--fg); /* Garante que as letras acima dos inputs sigam o tema */
+  font-weight: 500;
+  font-size: 14px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.muted { color: var(--muted); }
+
+/* --- INPUTS --- */
+input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 14px 18px;
+  margin: 8px 0 18px 0;
+  border-radius: 14px;
+  border: 1px solid var(--glass-border);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--fg); /* Texto dentro do input */
+  outline: none;
+  transition: all 0.2s;
+}
+
+input:focus { 
+  border-color: var(--accent); 
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2); }
+
+/* --- MENU SUPERIOR --- */
+.top-menu {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 96vw);
+  height: 120px; /* Altura base quando fechado */
+  min-height: 100px;
+  background: var(--menuBg);
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(20px);
+  z-index: 100;
+  padding: 0 25px; /* Removemos o padding top daqui para controlar nas colunas */
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  align-items: start; /* Mantém o topo fixo ao expandir */
+  gap: 20px;
+  transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-height 0.4s ease;
+  overflow: hidden;
+}
+
+.top-menu:hover {
+  height: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.top-menu::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: 10px;
+}
+
+.logo-badge {
+  width: 42px; height: 42px;
+  background: var(--accent);
+  color: #000;
+  border-radius: 12px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  font-weight: 900;
+}
+
+.icon-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 70px);
+  gap: 15px;
+  padding-top: 0; /* Removemos o padding exagerado anterior */
+  margin: 0;
+  align-items: start;
+}
+
+.icon {
+  width: 46px; height: 46px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 15px;
+  display: flex; 
+  align-items: center; 
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.icon:hover { 
+  transform: translateY(-4px); 
+  background: rgba(255,255,255,0.1); 
+}
+
+/* --- CHAT E MENSAGENS --- */
+.content { 
+  padding-top: 140px; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+}
+
+.chat-area { 
+  width: min(1100px, 94vw);
+ }
+
+.chat-log {
+  height: 60vh;
+  background: var(--card);
+  border-radius: 24px;
+  border: 1px solid var(--glass-border);
+  padding: 25px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.msg {
+  max-width: 75%;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: rgba(0,0,0,0.17);
+  color: var(--fg);
+  align-self: flex-start;
+  border-top-left-radius: 4px;
+  animation: messagePop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.msg.me {
+  align-self: flex-end !important;
+  margin-left: auto !important;
+  background: var(--accent) !important;
+  color: #000 !important;
+  font-weight: 600;
+  border-top-left-radius: 18px;
+  border-top-right-radius: 4px;
+  border-bottom-right-radius: 18px;
+}
+
+/* --- MODAIS (DIALOGS) --- */
+dialog { 
+  border: none; 
+  background: transparent; 
+  padding: 0; 
+  outline: none; 
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.75); 
+  backdrop-filter: blur(8px); 
+}
+
+.dlg-card {
+  width: min(450px, 90vw);
+  background: var(--bg); /* Usa a cor do tema */
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  padding: 30px;
+  color: var(--accent);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.dlg-actions {
+  display: flex;
+  flex-direction: column; /* Coloca botões um por baixo do outro como pedido */
+  gap: 12px;
+  margin-top: 25px;
+}
+
+.dlg-actions button, .primary {
+  width: 100%;
+  height: 48px;
+  border-radius: 14px;
+  border: none;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.primary { 
+  background: var(--accent); 
+  color: #000;
+}
+
+.secondary { 
+  background: rgba(255, 255, 255, 0.1); 
+  color: var(--fg); 
+  border: 1px solid var(--glass-border) !important; 
+}
+
+/* --- BOTÃO ELIMINAR --- */
+.room-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  height: 65px; /* Define uma altura fixa para garantir que o nome cabe */
+  order: 2;
+  transition: all 0.4s ease;
+}
+
+.room-tile.active {
+  order: 1 !important;
+}
+
+.btn-delete-room {
+  position: absolute;
+  top: -5px;
+  right: 5px;
+  width: 20px; height: 20px;
+  background: var(--danger);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  z-index: 10;
+  transition: 0.2s;
+}
+
+.room-tile:hover .btn-delete-room { 
+  opacity: 1; 
+}
+
+/* --- ANIMAÇÕES --- */
+@keyframes messagePop { 
+  0% { 
+  transform: scale(0.9); 
+  opacity: 0;
+} 100% { 
+  transform: scale(1); 
+  opacity: 1; 
+ } 
+}
+
+@keyframes aura-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(var(--aura-rgb), 0.7); }
+  70% { box-shadow: 0 0 0 12px rgba(var(--aura-rgb), 0); }
+  100% { box-shadow: 0 0 0 0 rgba(var(--aura-rgb), 0); }
+}
+.icon.active { border: 2px solid var(--accent) !important; animation: aura-pulse 2s infinite; }
+
+.chip {
+  min-width: 100px;
+  height: 38px;
+  padding: 0 16px;
+  margin: 0;
+  white-space: nowrap;
+  background: var(--glass);
+  border: 1px solid var(--accent);
+  color: var(--fg);
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Botão Sair (Danger) */
+.chip.danger {
+  color: var(--danger);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.chip.danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: var(--danger);
+}
+
+/* --- AJUSTE DO LOGO E GRUPOS --- */
+
+.logo-group {
+  display: flex;
+  align-items: center;
+  height: 100px;
+}
+
+.logo-group,
+.menu-group.actions {
+  height: 100px; /* Mesma altura base do menu */
+  display: flex;
+  align-items: center;
+}
+
+
+/* Texto ao lado do Badge do Logo */
+.logo-text {
+  font-weight: 800;
+  font-size: 18px;
+  color: var(--fg);
+  letter-spacing: -0.5px;
+}
+
+/* Títulos "Chats" ou "Salas" dentro do menu expansível */
+.group-head {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.group-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-bottom: 5px; /* Espaço entre a label e os ícones */
+  margin-left: 2px;
+}
+
+/* Texto debaixo dos ícones das salas */
+.room-tile .label {
+  font-size: 11px;
+  color: var(--fg);
+  margin-top: 4px;
+  text-align: center;
+  width: 100%;
+  white-space: nowrap;
+  overflow: visible; /* Garante que o nome não é cortado */
+  display: block;
+}
+
+/* Ajuste para os botões de ação no menu (Novo Chat, Tema, etc) */
+.menu-group.actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  height: 100px; /* Alinha com o centro da barra */
+  padding-top: 10px; /* Ajuste fino para bater com os ícones */
+}
+
+/* Coluna central que contém a label e os ícones */
+.menu-group.rooms {
+  display: flex;
+  flex-direction: column;
+  padding-top: 15px; /* Espaço para a label "CHATS" descer um pouco */
+}
+
+/* Responsividade: Garante que os ícones não fiquem colados em telemóveis */
+@media (max-width: 768px) {
+  .top-menu {
+    grid-template-columns: 1fr; /* Empilha o logo e salas em mobile */
+    height: auto;
+    max-height: 80px;
+    padding: 10px;
+  }
+ 
+  .icon-strip {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+}
+
+/* Estilo para mensagens de sistema ou erros dentro do chat */
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 5px;
+  text-align: center;
+}
+
+.tiny {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+/* Esconde a área de chat inicialmente */
+.chat-area.hidden {
+  display: none !important;
+}
+
+/* --- LOGIN CARD --- */
+.page-center {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg); /* Cor base do tema */
+  position: relative;
+  overflow: hidden;
+}
+
+.page-center::before,
+.page-center::after {
+  content: "";
+  position: absolute;
+  width: 500px;
+  height: 500px;
+  border-radius: 50%;
+  background: rgba(var(--aura-rgb), 0.15); /* Usa a cor do tema atual */
+  filter: blur(80px);
+  z-index: 0;
+  animation: float 15s infinite alternate ease-in-out;
+}
+
+.page-center::after {
+  background: rgba(var(--aura-rgb), 0.1);
+  width: 600px;
+  height: 600px;
+  right: -10%;
+  bottom: -10%;
+  animation-duration: 20s;
+  animation-delay: -5s;
+}
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(10%, 15%) scale(1.1); }
+  100% { transform: translate(-5%, 5%) scale(1); }
+}
+
+.card {
+  position: relative;
+  z-index: 10;
+  width: min(400px, 90vw);
+  /* Fundo escuro com transparência e desfoque (Glassmorphism) */
+  background: rgba(15, 20, 25, 0.8) !important;
+  padding: 40px; /* Mais espaço interno como na primeira foto */
+  border-radius: 28px; /* Cantos bem arredondados */
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card h1 {
+  margin: 0 0 10px 0;
+  color: #ffffff;
+  text-align: center;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.card .input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card label {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  margin-left: 4px;
+}
+/* Contentor para as luzes não interferirem com o formulário */
+.background-animation {
+  position: fixed; /* Fixa o fundo na tela toda */
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -1; /* Coloca obrigatoriamente atrás de tudo */
+  overflow: hidden;
+  filter: blur(70px); /* Aumentei o blur para ficar mais suave e "premium" */
+  background: var(--bg); /* Garante que o fundo segue o tema */
+}
+
+.blob {
+  position: absolute;
+  width: 60vw; /* Tamanho relativo à largura da tela */
+  height: 60vw;
+  border-radius: 50%;
+  background: rgba(var(--aura-rgb), 0.7);
+  animation: move-vibrant 12s infinite alternate ease-in-out;
+}
+
+/* Diferentes posições e velocidades para parecer caótico e bonito */
+.blob:nth-child(1) { top: -20%; left: -10%; animation-duration: 8s; }
+.blob:nth-child(2) { bottom: -20%; right: -10%; animation-duration: 10s; animation-delay: -2s; }
+.blob:nth-child(3) { top: 10%; right: 10%; animation-duration: 14s; animation-delay: -5s; opacity: 0.5; }
+.blob:nth-child(4) { bottom: 10%; left: 10%; animation-duration: 9s; animation-delay: -3s; }
+
+@keyframes move {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(200px, 100px) scale(1.2); }
+  100% { transform: translate(-100px, 200px) scale(0.9); }
+}
+
+@keyframes move-vibrant {
+  0% {transform: translate(0.0) scale(1) rotate(0deg); }
+  50% {transform: translate(15vw, 10vh) scale(1.3) rotate(180deg); }
+  100% {transform: translate(-10vw, 20vh) scale(0.8) rotate(360deg); }
+}
+
+/* Garante que os inputs no login também sigam o estilo */
+.card input {
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--fg);
+  border: 1px solid var(--glass-border);
+}
+
+/* Botão de Login largo */
+.card .primary {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 0; /* Remove aquele padding lateral gigante de 183px */
+}
+
+.card .primary:hover {
+  transform: scale(1.02);
+}
+
+/* --- BOTÕES DE TEMA (LOGIN) --- */
+.theme-switchers {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  display: flex;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.theme-btn {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%; /* Torna-os círculos perfeitos */
+  border: 1px solid var(--glass-border);
+  background: var(--card);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  padding: 0;
+}
+
+/* Animação ao passar o rato */
+.theme-btn:hover {
+  transform: translateY(-8px) scale(1.1);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 8px 20px rgba(var(--aura-rgb), 0.4);
+}
+
+/* Feedback ao clicar */
+.theme-btn:active {
+  transform: scale(0.9);
+}
+
+/* Ajuste das cores dos ícones para serem visíveis */
+.theme-btn {
+  color: var(--fg);
+}
+
+@media (max-width: 850px) {
+  .icon-strip {
+    grid-template-columns: repeat(4, 70px);
+ }
+}
+

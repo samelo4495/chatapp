@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt">
+<head>
+ <meta charset="utf-8"/>
+ <meta name="viewport" content="width=device-width, initial-scale=1"/>
+ <title>Chat</title>
+ <link rel="stylesheet" href="/web/app.css"/>
+</head>
+<body class="theme-day">
+  
+<div id="topMenu" class="top-menu">
+ 
+  <div class="logo-group">
+
+    <div class="logo-badge">💬</div>
+    <div class="logo-text"> ChatApp</div>
+  </div>
+
+  <div class="menu-group rooms">
+    <div class="group-head">
+      <div class="group-title">Chats</div>
+    </div>
+    <div id="roomsList" class="icon-strip">
+      </div>
+  </div>
+
+  <div class="menu-group actions">
+    <button id="btnNewRoom" class="chip">Novo Chat</button>
+    <button id="btnTheme" class="chip">Tema</button>
+    <button id="btnSettings" class="chip">Config</button>
+    <button id="btnLogout" class="chip danger">Sair</button>
+    
+  </div>
+</div>
+ <div class="content">
+   <div class="chat-area" class="chat-area hidden">
+     <div id="chatLog" class="chat-log"></div>
+     <div class="composer">
+       <input id="msg" type="text" placeholder="Escreve aqui..."/>
+       <button id="send" class="primary">Enviar</button>
+     </div>
+   </div>
+ </div>
+
+ <dialog id="dlgNewRoom" class="dlg">
+  <div class="dlg-card">
+    <h2>Novo Chat</h2>
+    <label>Nome</label><input id="nrName" placeholder="ex: Suporte"/>
+    <label>Protocolo</label><input id="nrProto" placeholder="ex: ficticio-v2"/>
+    <div class="dlg-actions">
+      <button id="nrCreate" class="primary">Criar</button>
+      <button value="cancel" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button>
+    </div>
+  </div>
+ </dialog>
+
+ <dialog id="dlgSettings" class="dlg">
+   <div class="dlg-card">
+     <h2>Configurações</h2>
+
+     <div class="muted">Mudar a password</div>
+     <label>Password atual</label>
+     <input id="oldPass" type="password"/>
+
+     <label>Nova password</label>
+     <input id="newPass" type="password"/>
+
+     <button id="btnChangePass" class="primary">Alterar Password</button>
+     
+     <div class="dlg-actions">
+     <button value="cancel" class="secondary" onclick="this.closest('dialog').close()">Cancelar</button>
+     </div>
+   </div>
+ </dialog>
+<div class="theme-switchers">
+    <button class="theme-btn" onclick="document.body.className='theme-night'" title="Modo Noite">☀️</button>
+    <button class="theme-btn" onclick="document.body.className='theme-day'" title="Modo Dia">🌕</button>
+    <button class="theme-btn" onclick="document.body.className='theme-floribela'" title="Modo Sakura">🌸</button>
+</div>
+ <script src="/web/app.js"></script>
+</body>
+</html>
