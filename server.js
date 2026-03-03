@@ -6,6 +6,7 @@ const session = require("express-session");
 const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3").verbose();
 const fetch = require("node-fetch");
+const { execSync, spawn } = require("child_process"); 
 const APP_PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const WEB_DIR = path.join(ROOT, "web");
