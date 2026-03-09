@@ -79,7 +79,13 @@ async function handleDeleteRoom(event, roomId) {
 async function selectRoom(id) {
   if (activeRoomId !== id) {
     lastCount = 0; // Força o refresh do log para a nova sala
+    
+    // --- ADICIONA ESTAS LINHAS AQUI ---
+    const log = elLog();
+    if (log) log.innerHTML = ""; 
+    // ---------------------------------
   }
+  
   activeRoomId = id;
   const room = ROOMS.find(r => r.id === id);
   
@@ -87,7 +93,6 @@ async function selectRoom(id) {
     elRoomName().textContent = room ? room.name : "Chat";
   }
   
-  // Re-renderiza para atualizar qual o ícone que aparece com a "aura" ativa
   renderRooms();
   refreshLog();
 }
@@ -98,36 +103,41 @@ async function refreshLog() {
   try {
     const j = await api(`/api/log?roomId=${activeRoomId}`);
     const log = elLog();
-    if (!log || !j.lines) return;
-
-    if (j.lines.length !== lastCount) {
-      log.innerHTML = j.lines
-        .filter(line => {
-          const cleanLine = line.trim();
-          if (cleanLine.startsWith("SISTEMA:")) {
-            console.log("%c" + cleanLine, "color: #10b981; font-weight: bold;");
-            return false;
-          }
-          return true;
-        })
-        .map((line, index) => { // ADICIONADO 'index' AQUI para corrigir o erro
-          const cleanLine = line.trim();
-
-          // L ^sGICA DE EMERG ^jNCIA:
-          // Se n  o h   prefixos, assume que as mensagens   mpares (0, 2, 4...) s  o tuas
-          // Se os prefixos voltarem, a l  gica antiga startsWith("EU:") continua a funcionar
-          const isMe = cleanLine.toUpperCase().startsWith("EU:") || (index % 2 === 0);
-
-          const cleantext = cleanLine.replace(/^(EU:|IA:)\s*/i, "");
-          return `<div class="msg ${isMe ? 'me' : ''}">${cleantext}</div>`;
-        })
-        .join("");
-
+    
+    if (j.lines && j.lines.length !== lastCount) {
+      log.innerHTML = ""; 
+      
+    j.lines.forEach((line) => {
+        const cleanLine = line.trim();
+        if (!cleanLine || cleanLine.startsWith("SISTEMA:")) return;
+    
+        // Procura a posição do primeiro ":"
+        const separatorIdx = cleanLine.indexOf(":");
+        if (separatorIdx === -1) return; // Linha inválida, ignora
+    
+        const senderPart = cleanLine.substring(0, separatorIdx).trim();
+        const messagePart = cleanLine.substring(separatorIdx + 1).trim();
+    
+        // 1. Identificação: É minha se o prefixo for o meu email OU "EU"
+        const isMe = (senderPart === ME.email) || (senderPart === "EU");
+        
+        // 2. Criação da Bolha
+        const div = document.createElement("div");
+        
+        // Se isMe -> Direita ('me')
+        // Se NÃO isMe -> Esquerda ('ai') -> Isto inclui IA e outros utilizadores
+        div.className = `msg ${isMe ? 'me' : 'ai'}`;
+        
+        div.innerText = messagePart;
+        log.appendChild(div);
+    });
+    
       lastCount = j.lines.length;
       log.scrollTop = log.scrollHeight;
     }
-  } catch (err) { console.error("Erro log:", err); }
+  } catch (err) { console.error("Erro ao carregar log:", err); }
 }
+
 // --- INICIALIZA ^g ^cO (Boot Seguro) ---
 async function boot() {
   setTheme(themeIdx);
@@ -188,7 +198,7 @@ document.addEventListener("click", () => {
   });
 
   // --- RESTANTE LÓGICA (CRIAR SALAS E MENSAGENS) ---
-  document.getElementById("nrCreate")?.addEventListener("click", async () => {
+document.getElementById("nrCreate")?.addEventListener("click", async () => {
     const name = document.getElementById("nrName")?.value.trim();
     const protocol = document.getElementById("nrProto")?.value.trim();
     if (!name || !protocol) return alert("Preenche os campos!");
@@ -198,43 +208,85 @@ document.addEventListener("click", () => {
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ name, protocol })
       });
-      ROOMS.push(j.room);
+      
+      // CORREÇÃO: O objeto sala é o próprio 'j', não 'j.room'
+      ROOMS.push(j); 
       document.getElementById("dlgNewRoom")?.close();
       renderRooms();
-      selectRoom(j.room.id);
+      selectRoom(j.id); 
     } catch (e) { alert(e.message); }
-  });
+});
 
   document.getElementById("send")?.addEventListener("click", sendMsg);
   document.getElementById("msg")?.addEventListener("keydown", (e) => {
     if (e.key === "Enter") { e.preventDefault(); sendMsg(); }
   });
 
-  setInterval(() => { if (activeRoomId) refreshLog(); }, 4000);
+  setInterval(() => { if (activeRoomId) refreshLog(); }, 100);
+}
+
+function renderMessage(sender, text) {
+    const log = elLog(); // Usa a função utilitária que já tens para o chatLog
+    if (!log) return;
+
+    const isMe = (sender === "user");
+    
+    // Cria o elemento da mensagem com a mesma estrutura que o refreshLog usa
+    const msgDiv = document.createElement("div");
+    msgDiv.className = `msg ${isMe ? 'me' : ''}`;
+    msgDiv.innerText = text;
+
+    log.appendChild(msgDiv);
+    
+    // Faz scroll para o fundo para vermos a nova mensagem
+    log.scrollTop = log.scrollHeight;
+}
+
+function renderSingleMessage(text, isMe) {
+    const log = elLog();
+    if (!log) return;
+
+    const div = document.createElement("div");
+    div.className = `msg ${isMe ? 'me' : 'ai'}`;
+    div.innerText = text;
+    
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight; // Faz scroll automático
 }
 
 async function sendMsg() {
-  const input = document.getElementById("msg");
-  const text = input.value.trim();
- 
-  if (!text || !activeRoomId) return;
+    const input = document.getElementById("msg");
+    const text = input.value.trim();
 
-  try {
-    input.value = ""; // Limpa logo para dar sensa    o de velocidade
-   
-    await api("/api/message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        roomId: activeRoomId,
-        text: text
-      })
-    });
-   
-    refreshLog(); // Tenta atualizar logo a seguir ao envio
-  } catch (err) {
-    console.error("Erro ao enviar mensagem:", err);
-  }
+    if (!text || !activeRoomId) return;
+
+    // 1. Limpa o input imediatamente
+    input.value = ""; 
+
+    // 2. DESENHA LOGO NO ECRÃ (Instantâneo!)
+    renderSingleMessage(text, true);
+
+    try {
+        const response = await api('/api/message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId: activeRoomId, text: text })
+        });
+
+        // 3. Se a IA responder no JSON, desenhamos a resposta dela logo a seguir
+        if (response.reply) {
+            renderSingleMessage(response.reply, false);
+        }
+
+        // Atualizamos o lastCount para o próximo refreshLog não duplicar nada
+        lastCount = 0;
+        await refreshLog(); // Recarrega o log para garantir que tudo está sincronizado 
+        
+    } catch (error) {
+        console.error("Erro ao enviar:", error);
+        // Opcional: Avisar o utilizador que a mensagem falhou
+        renderSingleMessage("ERRO: Mensagem não enviada.", false);
+    }
 }
 
 let selectedUserId = null;
@@ -365,31 +417,32 @@ document.getElementById("usSend")?.addEventListener("click", async () => {
     }
 
     try {
-        // 1. Criar a sala P2P (usando o nome do utilizador)
         const roomName = email.split('@')[0];
         const j = await api("/api/rooms", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ name: roomName, protocol: "p2p" })
+            body: JSON.stringify({ 
+                name: roomName, 
+                protocol: "p2p", 
+                targetId: userId
+            })
         });
 
-        if (!j || !j.room) throw new Error("Erro ao criar a sala no servidor.");
+        // CORREÇÃO: Verificamos 'j.id' em vez de 'j.room'
+        if (!j || !j.id) throw new Error("Erro ao criar a sala no servidor.");
 
-        // 2. Enviar a primeira mensagem para essa sala
         await api("/api/message", {
             method: "POST",
             headers: {"Content-Type": "application/json"},
-            body: JSON.stringify({ roomId: j.room.id, text: msg })
+            body: JSON.stringify({ roomId: j.id, text: msg })
         });
 
-        // 3. Atualizar a lista global de salas e a UI
-        // Verificamos se a sala já não existe na lista para não duplicar ícones
-        if (!ROOMS.find(r => r.id === j.room.id)) {
-            ROOMS.push(j.room);
+        if (!ROOMS.find(r => r.id === j.id)) {
+            ROOMS.push(j);
         }
         
         renderRooms();
-        selectRoom(j.room.id);
+        selectRoom(j.id);
         
         // Fechar a modal e limpar tudo
         document.getElementById("dlgNewRoom").close();
