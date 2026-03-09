@@ -7,12 +7,14 @@ const bcrypt = require("bcryptjs");
 const sqlite3 = require("sqlite3").verbose();
 const fetch = require("node-fetch");
 const { execSync, spawn } = require("child_process"); 
+const net = require("net");
 const APP_PORT = process.env.PORT || 3000;
 const ROOT = __dirname;
 const WEB_DIR = path.join(ROOT, "web");
 const DATA_DIR = path.join(ROOT, "data");
 const ROOMS_DIR = path.join(ROOT, "rooms");
 const DB_PATH = path.join(DATA_DIR, "app.db");
+const AI_STATUS_FILE = path.join(__dirname, 'data', 'lxc_status.txt');
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(ROOMS_DIR, { recursive: true });
@@ -39,21 +41,29 @@ const dbGet = (sql, params = []) => new Promise((res, rej) => db.get(sql, params
 const dbAll = (sql, params = []) => new Promise((res, rej) => db.all(sql, params, (err, rows) => err ? rej(err) : res(rows)));
 
 async function initDb() {
+    // 1. Criar tabela de utilizadores (se não existir)
     await dbRun(`CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE, 
         pass_hash TEXT, 
         is_admin INTEGER DEFAULT 0, 
         created_at TEXT
-)`);
-    
+    )`);
+
+    // 2. Criar tabela de salas com target_id
     await dbRun(`CREATE TABLE IF NOT EXISTS rooms (
-    id TEXT PRIMARY KEY,
-    name TEXT,
-    protocol TEXT,
-    owner_id TEXT,
-    created_at TEXT
-)`);               
+        id TEXT PRIMARY KEY,
+        name TEXT,
+        protocol TEXT,
+        owner_id TEXT,
+        target_id TEXT, -- Para conversas P2P
+        created_at TEXT
+    )`);
+
+    // TENTATIVA DE MIGRAR: Se a tabela já existia sem target_id, isto adiciona a coluna
+    try {
+        await dbRun(`ALTER TABLE rooms ADD COLUMN target_id TEXT`);
+    } catch(e) { /* Coluna já existe, ignorar erro */ }               
     
     const admin = await dbGet(`SELECT * FROM users WHERE email = ?`, ["admin@local"]);
     if (!admin) {
@@ -136,50 +146,97 @@ app.post("/api/logout", (req, res) => {
     });
 });
 
+// --- ROTA POST (Garantir que o objeto enviado é sólido) ---
+app.post("/api/rooms", requireAuth, async (req, res) => {
+    // 1. Adicionamos o targetId aqui (vem do frontend)
+    const { name, protocol, targetId } = req.body; 
+    const userId = req.session.user.id;
+    const roomId = "sala_" + Date.now();
+
+    try {
+        // 2. Incluímos o target_id na query SQL
+        await dbRun(
+            `INSERT INTO rooms (id, name, owner_id, protocol, target_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`, 
+            [roomId, name, userId, protocol, targetId || null, new Date().toISOString()]
+        );
+
+        // 3. Guardamos também na memória activeRooms
+        activeRooms.set(roomId, { 
+            id: roomId, 
+            name: name, 
+            protocol: protocol, 
+            owner_id: userId,
+            target_id: targetId || null,
+            lines: [] 
+        });
+
+        // 4. Retornamos o objeto completo
+        return res.status(201).json({ 
+            id: roomId, 
+            name: name, 
+            protocol: protocol,
+            target_id: targetId 
+        });
+
+    } catch (e) {
+        console.error("Erro ao criar sala:", e);
+        return res.status(500).json({ error: "Erro no banco de dados" });
+    }
+});
+
+// --- ROTA GET (Garantir que NUNCA envia undefined) ---
+app.get("/api/rooms", requireAuth, async (req, res) => {
+    try {
+        const userId = req.session.user.id;
+        const rows = await dbAll(
+            `SELECT * FROM rooms WHERE owner_id = ? OR target_id = ?`, 
+            [userId, userId]
+        );
+        
+        // Se rows for null ou undefined, enviamos um array vazio []
+        // O erro "reading id" acontece quando rows tem algo como [null] ou [undefined]
+        const rooms = (rows || []).filter(r => r && r.id);
+        
+        res.json({ rooms: rooms });
+    } catch (e) {
+        console.error("Erro na listagem:", e);
+        res.status(500).json({ rooms: [] });
+    }
+});
+
 app.get("/api/me", requireAuth, (req, res) => res.json({ user: req.session.user }));
 
 app.get("/api/rooms", requireAuth, async (req, res) => {
-    const rooms = await dbAll(`SELECT * FROM rooms WHERE owner_id = ?`, [req.session.user.id]);
-    res.json({ rooms });
-});
-
-app.post("/api/rooms", requireAuth, async (req, res) => {
     try {
-        const { name, protocol } = req.body;
-        const id = crypto.randomBytes(4).toString("hex");
-        const owner_id = req.session.user.id; // Vai buscar o ID de quem está logado
-
-        // 1. Grava na BD incluindo o owner_id para garantir a privacidade
-        await dbRun(
-            `INSERT INTO rooms (id, name, protocol, owner_id, created_at) VALUES (?,?,?,?,?)`,
-            [id, name, protocol, owner_id, new Date().toISOString()]
+        const userId = req.session.user.id;
+        const rooms = await dbAll(
+            `SELECT * FROM rooms WHERE owner_id = ? OR target_id = ?`, 
+            [userId, userId]
         );
-
-        // 2. Lança a instância isolada (Passo 3/Ponto 10)
-        launchChatInstance(id);
-
-        // 3. Define os dados da sala na memória local
-        const newRoom = {
-            id,
-            name,
-            protocol,
-            owner_id, 
-            lines: [`SISTEMA: Sala '${name}' criada.`],
-            proc: null
-        };
-
-        activeRooms.set(id, newRoom);
         
-        res.json({ ok: true, room: { id, name, protocol } });
+        // Limpeza: remove entradas inválidas que possam causar erro no frontend
+        const safeRooms = (rooms || []).filter(r => r && r.id);
+        
+        res.json({ rooms: safeRooms });
     } catch (e) {
-        console.error("Erro ao criar sala:", e.message);
-        res.status(500).json({ error: e.message });
+        res.status(500).json({ error: "Erro ao listar salas" });
     }
 });
 
 app.get("/api/log", requireAuth, (req, res) => {
-    const room = activeRooms.get(req.query.roomId);
-    res.json({ lines: room ? room.lines : ["Sala inativa ou a carregar..."] });
+    const { roomId } = req.query;
+    const logPath = path.join(__dirname, 'data', `${roomId}.log`);
+
+    // Em vez de ler da memória, lemos o ficheiro real que o cat mostrou
+    if (fs.existsSync(logPath)) {
+        const content = fs.readFileSync(logPath, "utf-8");
+        const lines = content.split("\n").filter(l => l.trim() !== "");
+        return res.json({ lines });
+    }
+
+    // Se o ficheiro ainda não existir, tenta ir à memória ou envia vazio
+    const room = activeRooms.get(roomId);
+    res.json({ lines: room ? room.lines : [] });
 });
 
 // Rota para pesquisar utilizadores (excluindo o próprio)
@@ -196,31 +253,53 @@ app.get("/api/users/search", requireAuth, async (req, res) => {
 });
 
 // --- ROTA DE MENSAGEM COM CORREÇÃO DE LOOP ---
-const net = require("net");
 
-app.post("/api/message", requireAuth, async (req, res) => {
+// --- 1. ROTAS ---
+
+app.post('/api/message', async (req, res) => {
     const { roomId, text } = req.body;
-    const socketPath = path.join(DATA_DIR, `${roomId}.sock`);
     const room = activeRooms.get(roomId);
-
+    
     if (!room) return res.status(404).json({ error: "Sala não encontrada" });
 
-    const net = require("net"); // Se não quiseres pôr no topo, deixa aqui, mas garante que o resto está certo
-    const client = net.createConnection(socketPath, () => {
-        client.write(text);
-    });
+    const logPath = path.join(__dirname, 'data', `${roomId}.log`);
 
-    client.on("data", (data) => {
-        const reply = data.toString();
-        room.lines.push(`EU: ${text}`);
-        room.lines.push(`BOT: ${reply}`);
-        client.end();
-        res.json({ ok: true });
-    });
+    try {
+        // 1. Define o prefixo correto: P2P usa email, IA usa "EU:"
+        const prefix = (room.protocol === 'p2p') ? `${req.session.user.email}: ` : "EU: ";
+        fs.appendFileSync(logPath, `${prefix}${text}\n`);
+        
+        // 2. Se for P2P, termina aqui (o outro user lê via refreshLog)
+        if (room.protocol === 'p2p') {
+            return res.json({ success: true });
+        }
 
-    client.on("error", () => {
-        res.status(500).json({ error: "A instância bwrap não está a responder." });
-    });
+        // 3. SE FOR IA (protocolo 'bwrap' ou outro), envia para o socket
+        const socketPath = '/tmp/ia_socket.sock'; 
+        
+        const client = net.createConnection({ path: socketPath }, () => {
+            client.write(text);
+        });
+
+        client.setTimeout(30000);
+
+        client.once('data', (data) => {
+            const aiReply = data.toString().trim();
+            // Grava a resposta da IA no log para o frontend ver
+            fs.appendFileSync(logPath, `IA: ${aiReply}\n`);
+            if (!res.headersSent) res.json({ reply: aiReply });
+            client.end();
+        });
+
+        client.on('error', (err) => {
+            console.error("Erro no socket da IA:", err.message);
+            if (!res.headersSent) res.status(500).json({ error: "A IA não está a ouvir (Socket Error)" });
+        });
+
+    } catch (e) {
+        console.error("Erro na rota de mensagem:", e);
+        if (!res.headersSent) res.status(500).json({ error: "Erro interno ao processar mensagem" });
+    }
 });
 
 app.delete("/api/rooms/:id", requireAuth, async (req, res) => {
@@ -230,10 +309,52 @@ app.delete("/api/rooms/:id", requireAuth, async (req, res) => {
     res.json({ ok: true });
 });
 
+// --- 2. FUNÇÕES AUXILIARES ---
+
+function syncAIBrain() {
+    try {
+        const stdout = execSync("lxc list --format csv -c n,s").toString();
+        // Escreve no ficheiro que será mapeado para o chatConnect
+        fs.writeFileSync(AI_STATUS_FILE, stdout); 
+        console.log("🧠 IA Sincronizada com LXC");
+    } catch (e) {
+        console.error("Erro ao sincronizar IA:", e.message);
+    }
+}
+
+function launchChatInstance(roomId) {
+    const socketPath = path.join(DATA_DIR, `${roomId}.sock`);
+    const roomDir = path.join(ROOMS_DIR, roomId);
+    const scriptPath = path.join(ROOT, "chatConnect.js");
+    
+    if (!fs.existsSync(roomDir)) fs.mkdirSync(roomDir, { recursive: true });
+    
+    // Remove socket antigo se existir
+    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
+
+    const nodePath = "/usr/bin/node"; // Caminho direto para evitar o which node
+
+    spawn("bwrap", [
+        "--dev-bind", "/", "/",
+        "--share-net",
+        "--tmpfs", "/tmp",
+        "--bind", roomDir, "/tmp",
+        "--bind", DATA_DIR, DATA_DIR,
+        "--ro-bind", AI_STATUS_FILE, "/lxc_status.txt", 
+        "--chdir", "/tmp",
+        nodePath, scriptPath, socketPath
+    ], { stdio: 'inherit' });
+}
+
+// --- 3. BOOT (INICIALIZAÇÃO) ---
+
 async function boot() {
     await initDb();
+    
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.mkdirSync(ROOMS_DIR, { recursive: true });
+
     const rooms = await dbAll(`SELECT * FROM rooms`);
-   
     for (const r of rooms) {
         const logPath = path.join(ROOMS_DIR, r.id, "chat.log");
         let history = ["SISTEMA: Sala recuperada."];
@@ -247,7 +368,7 @@ async function boot() {
             id: r.id,
             name: r.name,
             protocol: r.protocol,
-            owner_id: r.owner_id, // ADICIONA ESTA LINHA AQUI
+            owner_id: r.owner_id,
             lines: history,
             proc: null
         });
@@ -255,64 +376,13 @@ async function boot() {
         launchChatInstance(r.id);
     }
 
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.mkdirSync(ROOMS_DIR, { recursive: true });
-    
-    function updateLxcStatusFile() {
-        try {
-            // Como és ROOT, o comando lxc list vai funcionar sem problemas
-            const status = execSync("/usr/bin/lxc list --format csv -c ns").toString(); 
-            const statusPath = path.join(DATA_DIR, "lxc_status.txt");
-            
-            fs.writeFileSync(statusPath, status || "Nenhum container encontrado.");
-        console.log("[SISTEMA] Estado atualizado com sucesso.");
-    } catch (e) {
-        // Log detalhado para sabermos o erro exato no terminal
-        console.error("[ERRO DETALHADO LXC]:", e.message);
-        fs.writeFileSync(path.join(DATA_DIR, "lxc_status.txt"), "Erro técnico ao aceder ao LXD Daemon.");
-    }
-}
+    // Intervalos e Servidor
+    setInterval(syncAIBrain, 30000);
+    syncAIBrain();
 
-// Atualiza a cada 30 segundos e corre uma vez no início
-setInterval(updateLxcStatusFile, 30000);
-updateLxcStatusFile();
-    
-    // LIGAR O SERVIDOR (Importante: tem de estar aqui ou no fim)
-    app.listen(APP_PORT, () => {
-        console.log(`Servidor ativo em http://localhost:${APP_PORT}`);
+        app.listen(APP_PORT, "0.0.0.0", () => {
+        console.log(`Servidor ativo em http://0.0.0.0:${APP_PORT}`);
     });
- }
-
- // --- 2. FUNÇÃO LAUNCH (FORA DO BOOT) ---
- // Estar fora permite que seja chamada tanto pelo boot() quanto pela rota POST /api/rooms
-function launchChatInstance(roomId) {
-    const socketPath = path.join(DATA_DIR, `${roomId}.sock`);
-    const roomDir = path.join(ROOMS_DIR, roomId);
-    const scriptPath = path.join(ROOT, "chatConnect.js");
-    
-    if (!fs.existsSync(roomDir)) fs.mkdirSync(roomDir, { recursive: true });
-    fs.chmodSync(roomDir, 0o777); 
-
-    if (fs.existsSync(socketPath)) fs.unlinkSync(socketPath);
-
-    const nodePath = execSync("which node").toString().trim();
-
-    const child = spawn("bwrap", [
-        "--ro-bind", "/", "/",
-        "--share-net",              // DESBLOQUEIO: Permite falar com a llama.cpp (8080)
-        "--dev", "/dev",
-        "--proc", "/proc",
-        "--tmpfs", "/tmp",
-        "--bind", roomDir, "/tmp",
-        "--bind", DATA_DIR, DATA_DIR, // Permite criar o socket de comunicação
-        "--ro-bind", path.join(DATA_DIR, "lxc_status.txt"), "/tmp/lxc_status.txt", // Permite ler o estado dos containers
-        "--chdir", "/tmp",
-        nodePath, scriptPath, socketPath
-    ], { stdio: 'inherit' });
-
-    child.on("error", (err) => console.error(`[Erro bwrap] ${err.message}`));
-    return socketPath;
 }
 
-// --- 3. EXECUTAR O BOOT ---
 boot();
