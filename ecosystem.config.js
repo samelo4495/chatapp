@@ -14,10 +14,17 @@ module.exports = {
         "--port", "8080",
         "--host", "127.0.0.1",
         "-c", "8192", 
-        "-t", "10",    
+        "-t", "10",     
         "--n-gpu-layers", "0"
       ],
       interpreter: "none"
+    },
+    // --- ADICIONA ESTE BLOCO ABAIXO ---
+    {
+      name: "ia-bridge",
+      script: "chatConnect.js",
+      cwd: "/home/chatapp",
+      args: "/tmp/ia_socket.sock" // Este argumento cria o ficheiro que faltava!
     }
   ]
 }
