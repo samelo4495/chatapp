@@ -1,32 +1,30 @@
 # ChatApp
-Esta é uma Aplicação Web Full-Stack de Gestão de Chat Multi-Instância, que utiliza uma arquitetura de micro-serviços isolados via processos Unix. É um sistema híbrido entre um servidor de mensagens e um painel de controlo de instâncias remotas/locais.
+This is a Full-Stack Multi-Instance Chat Management Web Application, which uses an architecture of isolated microservices via Unix processes. It is a hybrid system between a messaging server and a remote/local instance control panel.
 
-O ChatApp é um servidor de chat robusto construído em Node.js, focado em isolamento de processos e flexibilidade de interface. Ao contrário de chats tradicionais, cada sala de conversação opera como uma instância independente, isolada num ambiente seguro Bubblewrap (bwrap).
+ChatApp is a robust chat server built in Node.js, focused on process isolation and interface flexibility. Unlike traditional chats, each conversation room operates as an independent instance, isolated in a secure Bubblewrap (bwrap) environment.
 
-🚀 Características Principais
-Arquitetura Multi-Instância: Cada sala de chat é gerida por um processo filho (chatConnect.js), comunicando com o servidor principal via Unix Sockets.
+🚀 Main Features Multi-Instance Architecture: Each chat room is managed by a child process (chatConnect.js), communicating with the main server via Unix Sockets.
 
-Segurança e Isolamento: Execução de scripts avançados (Bash, Python, Node) dentro de um ambiente sandboxed usando Bubblewrap.
+Security and Isolation: Running advanced scripts (Bash, Python, Node) within a sandboxed environment using Bubblewrap.
 
-Interface Adaptativa (UI/UX):
+Adaptive Interface (UI/UX):
 
-Menu flutuante inteligente com expansão dinâmica e transparência.
+Smart floating menu with dynamic expansion and transparency.
 
-Design totalmente responsivo (Desktop, Tablet e Mobile).
+Fully responsive design (Desktop, Tablet and Mobile).
 
-Sistema de temas dinâmicos: Diurno, Noturno e o exclusivo tema Floribela (colorido e vibrante).
+Dynamic theme system: Daytime, Nighttime and the exclusive Floribela theme (colorful and vibrant).
 
-Gestão de Utilizadores e Sessão: Autenticação baseada em SQLite com persistência de sessão via cookies.
+User and Session Management: SQLite-based authentication with session persistence via cookies.
 
-Sistema de Log Distribuído: Cada instância de chat gere o seu próprio histórico de mensagens dentro do seu sistema de ficheiros isolado.
+Distributed Log System: Each chat instance generates its own message history within its isolated file system.
 
-🛠️ Stack Tecnológica
-Backend: Node.js, Express.
+🛠️ Technology Stack Backend: Node.js, Express.
 
-Base de Dados: SQLite (User management).
+Database: SQLite (User management).
 
-Comunicação IPC: Unix Domain Sockets.
+IPC Communication: Unix Domain Sockets.
 
-Segurança: Bubblewrap (Linux sandboxing).
+Security: Bubblewrap (Linux sandboxing).
 
 Frontend: HTML5, CSS3 (Modern Flexbox/Grid), Vanilla JavaScript.
